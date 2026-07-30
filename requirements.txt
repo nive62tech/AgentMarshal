@@ -1,0 +1,12 @@
+langgraph
+langchain
+sentence-transformers
+chromadb
+fastapi
+uvicorn
+streamlit
+mlflow
+pytest
+python-dotenv
+groq
+google-generativeai
