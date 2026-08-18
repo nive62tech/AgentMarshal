@@ -1,6 +1,6 @@
-# AgentSentinel
+# AgentMarshal
 
-PROJECT: AgentSentinel — a final-year B.Tech AI/ML capstone project.
+PROJECT: AgentMarshal — a final-year B.Tech AI/ML capstone project.
 
 WHAT IT IS: A closed-loop multi-agent system for AI agent security. An Attacker Agent
 tries to hijack a Target Agent's goals via indirect prompt injection (hidden instructions
