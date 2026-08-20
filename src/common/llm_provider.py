@@ -31,13 +31,37 @@ load_dotenv()
 Provider = Literal["groq", "gemini", "ollama"]
 
 DEFAULT_MODELS: dict[Provider, str] = {
-    "groq": "llama-3.3-70b-versatile",
-    "gemini": "gemini-2.0-flash",
+    # llama-3.3-70b-versatile was deprecated by Groq (June 2026); Groq's own
+    # migration guidance points to openai/gpt-oss-120b as the replacement.
+    # If this 404s again in the future, run `groq.Client().models.list()`
+    # (or GET https://api.groq.com/openai/v1/models) to see what's currently live.
+    "groq": "openai/gpt-oss-120b",
+    # gemini-2.0-flash was shut down June 1, 2026; gemini-2.5-flash is the
+    # current recommended replacement. NOTE: gemini-2.5-flash is itself
+    # scheduled to shut down October 16, 2026 (per Google's deprecations
+    # page) -- this project's timeline (through Month 8) runs past that
+    # date, so this default will need updating again before Phase 6-8.
+    "gemini": "gemini-2.5-flash",
     "ollama": "llama3.1",
 }
 
 MAX_RETRIES = 4
 BASE_BACKOFF_SECONDS = 2.0
+
+# Substrings/status codes that indicate the error is NOT going to resolve
+# itself with a retry (bad key, malformed request) as opposed to transient
+# errors (rate limit, timeout, 5xx) that genuinely benefit from backoff.
+_NON_RETRYABLE_MARKERS = (
+    "401", "invalid_api_key", "authenticationerror", "invalid api key",
+    "403", "permissiondeniederror",
+    "404", "notfounderror",
+    "400", "invalid_request_error", "badrequesterror",
+)
+
+
+def _is_non_retryable(err: Exception) -> bool:
+    text = f"{type(err).__name__} {err}".lower()
+    return any(marker.lower() in text for marker in _NON_RETRYABLE_MARKERS)
 
 
 class LLMClient:
@@ -79,6 +103,19 @@ class LLMClient:
                 return self._complete_once(prompt, system)
             except Exception as e:  # noqa: BLE001 - broad on purpose, provider SDKs raise different types
                 last_err = e
+
+                if _is_non_retryable(e):
+                    # Auth failures (bad/missing API key), bad-request errors,
+                    # etc. will not fix themselves on retry — fail fast instead
+                    # of burning ~30s of exponential backoff for nothing.
+                    console_logger.error(
+                        "LLM call failed with a non-retryable error, not retrying: %s", e
+                    )
+                    raise RuntimeError(
+                        f"Non-retryable LLM error ({type(e).__name__}): {e}. "
+                        "Check your API key / request format rather than retrying."
+                    ) from e
+
                 is_rate_limit = "rate" in str(e).lower() or "429" in str(e)
                 wait = BASE_BACKOFF_SECONDS * (2 ** attempt)
                 console_logger.warning(
