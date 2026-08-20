@@ -10,3 +10,9 @@ pytest
 python-dotenv
 groq
 google-generativeai
+
+langgraph
+langchain-core
+tavily-python
+groq
+google-generativeai
