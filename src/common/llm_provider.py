@@ -18,7 +18,15 @@ import os
 import time
 from typing import Literal, Optional
 
+from dotenv import load_dotenv
+
 from src.common.logging_utils import console_logger
+
+# Load .env once at import time so GROQ_API_KEY / TAVILY_API_KEY / etc. land
+# in os.environ before any client tries to read them. python-dotenv finds
+# .env by walking up from the current working directory, so this works
+# whether the module is imported directly or via `python -m ...`.
+load_dotenv()
 
 Provider = Literal["groq", "gemini", "ollama"]
 
