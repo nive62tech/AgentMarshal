@@ -131,10 +131,39 @@ class LLMClient:
             if system:
                 messages.append({"role": "system", "content": system})
             messages.append({"role": "user", "content": prompt})
-            resp = self._client.chat.completions.create(
+
+            create_kwargs = dict(
                 model=self.model, messages=messages, temperature=self.temperature,
             )
-            return resp.choices[0].message.content
+            # openai/gpt-oss-* are reasoning models: by default (reasoning_effort
+            # "medium") they sometimes spend the whole response on internal
+            # reasoning and leave `content` empty (a documented, known Groq
+            # issue: see community.groq.com "GP120B responses only contain
+            # reasoning tokens"). Forcing "low" effort substantially reduces
+            # how often this happens for a plan/act loop like ours, which
+            # doesn't need deep chain-of-thought anyway.
+            if self.model.startswith("openai/gpt-oss"):
+                create_kwargs["reasoning_effort"] = "low"
+
+            resp = self._client.chat.completions.create(**create_kwargs)
+            message = resp.choices[0].message
+            content = (message.content or "").strip()
+
+            if not content:
+                # Fallback: some responses put everything in `reasoning` and
+                # leave `content` empty. Salvage what we can rather than
+                # returning "" and forcing plan_node to finish early with
+                # nothing — reasoning text often still contains a decision
+                # (or at least text _extract_json can search for a JSON
+                # object inside).
+                reasoning = getattr(message, "reasoning", None)
+                if reasoning:
+                    console_logger.warning(
+                        "groq response had empty content; falling back to "
+                        "reasoning field (%d chars)", len(reasoning),
+                    )
+                    return reasoning
+            return content
 
         elif self.provider == "gemini":
             full_prompt = f"{system}\n\n{prompt}" if system else prompt
