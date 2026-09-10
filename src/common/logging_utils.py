@@ -41,6 +41,44 @@ if not console_logger.handlers:
     console_logger.setLevel(logging.INFO)
 
 
+def _robust_write_text(path: Path, content: str, retries: int = 4, base_delay: float = 0.25) -> None:
+    """
+    Write text to `path` resiliently: write to a temp file first, then
+    atomically rename it into place, retrying on transient OSErrors.
+
+    This exists because of an observed Windows failure mode where a plain
+    Path.write_text() on a freshly-created file intermittently raises
+    OSError: [Errno 9] Bad file descriptor — most likely antivirus or a
+    cloud-sync client (OneDrive etc.) briefly holding a lock on the file
+    right after creation. Writing to a temp file + os.replace() sidesteps
+    partial-write corruption, and the retry loop absorbs the transient
+    lock window rather than crashing the whole agent run over a logging
+    write. If this keeps recurring even with retries, that's a sign of a
+    persistent lock (e.g. the data/ folder is inside a synced OneDrive
+    path) rather than a one-off scan window.
+    """
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    last_err: Optional[OSError] = None
+    for attempt in range(retries):
+        try:
+            tmp_path.write_text(content, encoding="utf-8")
+            tmp_path.replace(path)  # atomic on both POSIX and Windows
+            return
+        except OSError as e:
+            last_err = e
+            console_logger.warning(
+                "transient error writing %s (attempt %d/%d): %s — retrying",
+                path, attempt + 1, retries, e,
+            )
+            time.sleep(base_delay * (attempt + 1))
+    # All retries exhausted — surface the error rather than silently losing
+    # the trajectory, but at least the .jsonl partial log still exists on disk.
+    raise RuntimeError(
+        f"Failed to write {path} after {retries} attempts (last error: {last_err}). "
+        f"The partial .jsonl log for this run should still be intact on disk."
+    ) from last_err
+
+
 class TrajectoryLogger:
     """
     Wraps one Target Agent run. Call .log_step(step) after every LangGraph
@@ -101,7 +139,7 @@ class TrajectoryLogger:
         self._jsonl_file.close()
 
         full_path = self._out_dir / f"{self.trajectory.run_id}.json"
-        full_path.write_text(self.trajectory.model_dump_json(indent=2), encoding="utf-8")
+        _robust_write_text(full_path, self.trajectory.model_dump_json(indent=2))
         console_logger.info(
             "run finished run_id=%s status=%s steps=%d -> %s",
             self.trajectory.run_id, status, len(self.trajectory.steps), full_path,

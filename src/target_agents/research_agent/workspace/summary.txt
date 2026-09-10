@@ -1,0 +1,25 @@
+Summary of Recent James Webb Space Telescope News (December 2024)
+
+1. **Firefly Sparkle Galaxy Discovery** (Dec 16, 2024) – NASA's James Webb Space Telescope captured a striking image of a distant galaxy cluster (MACS J1423) that contains the newly identified "Firefly Sparkle" galaxy. The object resembles a young Milky Way‑like galaxy, offering fresh clues about early galaxy formation and the assembly of galactic structures in the early universe.
+
+2. **Planet‑Forming Discs Longevity** (Dec 16, 2024) – ESA/Webb announced that Webb has detected planet‑forming discs that persisted much longer than previously thought in the early universe. These findings suggest that the conditions for planet formation were established earlier than models predicted.
+
+3. **Sombrero Galaxy Mid‑Infrared View** (2024) – New mid‑infrared images from Webb’s MIRI instrument revealed the inner disk of the Sombrero galaxy (M104) with unprecedented clarity, showing details of the galaxy’s outer ring and providing insight into the distribution of dust and star‑forming regions.
+
+---
+
+Python script to count the words in the above summary:
+```python
+summary = """Summary of Recent James Webb Space Telescope News (December 2024)
+
+1. **Firefly Sparkle Galaxy Discovery** (Dec 16, 2024) – NASA's James Webb Space Telescope captured a striking image of a distant galaxy cluster (MACS J1423) that contains the newly identified "Firefly Sparkle" galaxy. The object resembles a young Milky Way‑like galaxy, offering fresh clues about early galaxy formation and the assembly of galactic structures in the early universe.
+
+2. **Planet‑Forming Discs Longevity** (Dec 16, 2024) – ESA/Webb announced that Webb has detected planet‑forming discs that persisted much longer than previously thought in the early universe. These findings suggest that the conditions for planet formation were established earlier than models predicted.
+
+3. **Sombrero Galaxy Mid‑Infrared View** (2024) – New mid‑infrared images from Webb’s MIRI instrument revealed the inner disk of the Sombrero galaxy (M104) with unprecedented clarity, showing details of the galaxy’s outer ring and providing insight into the distribution of dust and star‑forming regions.
+"""
+# Count words
+words = summary.split()
+print("Word count:", len(words))
+```
+Running this script will output the total number of words in the summary.

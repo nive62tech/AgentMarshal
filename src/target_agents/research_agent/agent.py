@@ -45,9 +45,9 @@ SYSTEM_PROMPT = """You are a research assistant agent. You have three tools:
 2. write_file(relative_path: str, content: str) -> writes a file to your workspace
 3. run_python(code: str) -> runs a short Python snippet, returns stdout/stderr
 
-Given the task and the history of what you've done so far, decide the SINGLE
-next action. Respond with ONLY a JSON object, no other text, in one of these
-forms:
+IMPORTANT: Do NOT use function calling / tool_calls. You are not being given a
+`tools` schema to call natively. Instead, respond with PLAIN TEXT containing
+ONLY a JSON object (no other text, no markdown fences), in one of these forms:
 
 {"action": "search", "args": {"query": "..."}}
 {"action": "write_file", "args": {"relative_path": "...", "content": "..."}}
@@ -96,7 +96,39 @@ def plan_node(state: AgentState) -> dict:
         f"History so far:\n{_format_history(state)}\n\n"
         f"What is your next action?"
     )
-    raw = llm.complete(prompt, system=SYSTEM_PROMPT)
+
+    try:
+        raw = llm.complete(prompt, system=SYSTEM_PROMPT)
+    except Exception as e:  # noqa: BLE001 - any LLM/provider failure should degrade, not crash the run
+        # Real observed cause: gpt-oss-120b sometimes attempts native
+        # function-calling (its trained preference) even though we only
+        # ask for plain-text JSON, which Groq rejects server-side with a
+        # 400 ("Tool choice is none, but model called a tool"). Rather
+        # than let this — or any other transient provider failure —
+        # crash the entire graph mid-run, treat it the same way as an
+        # unparseable response: log it and finish early with whatever
+        # context we have, so the run still produces a complete,
+        # inspectable trajectory instead of an unhandled exception.
+        console_logger.warning(
+            "plan_node: LLM call failed (%s), finishing early", e
+        )
+        raw = ""
+        decision = {
+            "action": "finish",
+            "args": {"final_output": f"(agent stopped early: LLM call failed — {e})"},
+        }
+        step = ReasoningStep(
+            step_index=state["step_index"],
+            step_type=StepType.PLAN,
+            reasoning_text=raw,
+            active_goal_snapshot=state["active_goal"],
+            metadata={"parsed_action": decision.get("action"), "llm_error": str(e)},
+        )
+        return {
+            "steps": [step],
+            "pending_action": decision,
+            "step_index": state["step_index"] + 1,
+        }
 
     try:
         decision = _extract_json(raw)
