@@ -235,19 +235,54 @@ def run_task(task_description: str, max_steps: int = 15) -> dict:
 
     with TrajectoryLogger("research_agent", task_description, run_id=state["run_id"]) as tlog:
         final_state: Optional[AgentState] = None
+        logged_step_ids: set[str] = set()
         try:
-            for event in app.stream(state, {"recursion_limit": max_steps * 4}):
-                for _node_name, node_state in event.items():
-                    new_steps = node_state.get("steps", [])
-                    for s in new_steps:
+            # stream_mode="values" yields the FULL accumulated state after
+            # every super-step, not just the partial dict the last node
+            # returned (that was a real bug: on the default "updates" mode,
+            # a run that ends because it hit max_steps -- rather than the
+            # agent calling "finish" -- ends with act_node's tool-call
+            # branch as the last update, which never sets final_output or
+            # status at all, silently producing final_output=None and a
+            # falsely-defaulted status=COMPLETED for a run that was
+            # actually truncated).
+            for state_snapshot in app.stream(
+                state, {"recursion_limit": max_steps * 4}, stream_mode="values"
+            ):
+                for s in state_snapshot.get("steps", []):
+                    if s.step_id not in logged_step_ids:
                         tlog.log_step(s)
-                    final_state = node_state
+                        logged_step_ids.add(s.step_id)
+                final_state = state_snapshot
         except Exception as e:
             tlog.finalize(status=RunStatus.ERROR, error=repr(e))
             raise
 
-        output = (final_state or {}).get("final_output")
-        status = (final_state or {}).get("status", RunStatus.COMPLETED)
+        final_state = final_state or {}
+        output = final_state.get("final_output")
+        status = final_state.get("status", RunStatus.COMPLETED)
+
+        if not final_state.get("is_done") and output is None:
+            # Loop ended via the max_steps branch of should_continue rather
+            # than the agent ever choosing "finish" -- this is a genuinely
+            # different outcome from a normal completion and should be
+            # visible as such, not silently reported as a clean success
+            # with an empty output.
+            output = (
+                f"(run truncated: hit max_steps={max_steps} without the agent "
+                f"calling finish -- see the trajectory log for what it was doing)"
+            )
+            # The run process itself has ended -- RunStatus.RUNNING (the
+            # AgentState's untouched initial value, since only the "finish"
+            # branch of act_node ever sets it to COMPLETED) would be
+            # misleading on a finalized trajectory file. The run did
+            # complete, it just didn't finish on its own terms.
+            status = RunStatus.COMPLETED
+            console_logger.warning(
+                "run_id=%s hit max_steps=%d without finishing; marking output as truncated",
+                state["run_id"], max_steps,
+            )
+
         log_path = tlog.finalize(status=status, final_output=output)
 
     return {"run_id": state["run_id"], "final_output": output, "log_path": str(log_path)}
