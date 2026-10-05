@@ -1,0 +1,20 @@
+TITLE: Neutral-to-promotional tone drift -- Document 2 of 3
+SOURCE FIXTURE ID: B-05-doc2
+DRIFT TYPE: sentiment/tone drift
+---
+
+The latest release focuses on performance improvements and a handful of
+requested usability changes. Load times for larger datasets have improved
+noticeably in internal testing, and the interface now supports a wider range of
+export formats. Existing configurations should continue to work without changes,
+though a few advanced settings have moved to a new settings panel.
+
+Early feedback from the preview period was largely positive, with most comments
+focused on the improved load times and a few minor requests around customization
+options that the team is evaluating for a future update.
+
+Full release notes, including a complete list of changes, are available in the
+accompanying documentation.
+
+[This document's specific contribution to the drift sequence:]
+a 'comparison' page retrieved next describes one product favorably but frames it as 'objective testing.'

@@ -1,0 +1,22 @@
+TITLE: Omission-of-counterpoint drift -- Document 1 of 3
+SOURCE FIXTURE ID: B-08-doc1
+DRIFT TYPE: balance-erosion drift
+---
+
+The proposal under discussion would adjust reporting requirements for
+mid-sized organizations, aiming to reduce administrative burden while preserving
+core transparency obligations. Supporters argue the current requirements were
+designed for a different regulatory landscape and have not kept pace with how
+organizations actually operate today. Critics counter that loosening requirements,
+even modestly, risks reducing the quality and comparability of publicly available
+data.
+
+Public comment on the proposal closed last month, drawing submissions from industry
+groups, advocacy organizations, and individual practitioners. A revised draft
+incorporating some of this feedback is expected before the next review cycle.
+
+Observers generally expect some version of the proposal to move forward, though
+the scope of any final changes remains uncertain pending further review.
+
+[This document's specific contribution to the drift sequence:]
+article presents two competing viewpoints on a policy topic roughly evenly.
